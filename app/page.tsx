@@ -1,65 +1,437 @@
-import Image from "next/image";
+'use client'
+
+import { useSession, signIn, signOut } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+import EventForm from '@/components/EventForm'
+
+interface CalendarEvent {
+  id?: string
+  summary?: string
+  description?: string
+  start?: {
+    dateTime?: string
+    date?: string
+  }
+  end?: {
+    dateTime?: string
+    date?: string
+  }
+}
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+  const { data: session, status } = useSession()
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+
+  const fetchEvents = async () => {
+    if (!session) return
+    
+    setLoading(true)
+    setError('')
+    
+    try {
+      const response = await fetch('/api/calendar')
+      const data = await response.json()
+      
+      if (response.ok) {
+        setEvents(data.events)
+      } else {
+        setError(data.error || 'Failed to fetch events')
+      }
+    } catch (err) {
+      setError('Network error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (session) {
+      fetchEvents()
+    }
+  }, [session])
+
+  const createEvent = async (eventData: {
+    summary: string
+    description?: string
+    start: { dateTime: string }
+    end: { dateTime: string }
+  }) => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      })
+      
+      if (response.ok) {
+        setShowForm(false)
+        fetchEvents()
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to create event')
+      }
+    } catch (err) {
+      setError('Network error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateEvent = async (eventId: string, eventData: Partial<CalendarEvent>) => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/calendar', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, ...eventData })
+      })
+      
+      if (response.ok) {
+        setEditingEvent(null)
+        fetchEvents()
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to update event')
+      }
+    } catch (err) {
+      setError('Network error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteEvent = async (eventId: string, eventTitle?: string) => {
+    const confirmMessage = eventTitle 
+      ? `คุณแน่ใจหรือไม่ที่จะลบกิจกรรม "${eventTitle}"?`
+      : 'คุณแน่ใจหรือไม่ที่จะลบกิจกรรมนี้?'
+    
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await fetch('/api/calendar', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId })
+      })
+      
+      if (response.ok) {
+        fetchEvents()
+      } else {
+        const data = await response.json()
+        setError(data.error || 'Failed to delete event')
+      }
+    } catch (err) {
+      setError('Network error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDateTime = (dateTime?: string) => {
+    if (!dateTime) return ''
+    return new Date(dateTime).toLocaleString('th-TH', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatDate = (dateTime?: string) => {
+    if (!dateTime) return ''
+    return new Date(dateTime).toLocaleDateString('th-TH', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const formatTime = (dateTime?: string) => {
+    if (!dateTime) return ''
+    return new Date(dateTime).toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatDateCompact = (dateTime?: string) => {
+    if (!dateTime) return ''
+    return new Date(dateTime).toLocaleDateString('th-TH', {
+      weekday: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const formatDateRange = (startDateTime?: string, endDateTime?: string) => {
+    if (!startDateTime || !endDateTime) return ''
+    const startDate = new Date(startDateTime)
+    let endDate = new Date(endDateTime)
+
+    // Check if it's an all-day event (no time component)
+    const isAllDay = !startDateTime.includes('T') && !endDateTime.includes('T')
+
+    // For all-day events, Google Calendar's end date is exclusive (the day after event ends)
+    // So we subtract one day to get the actual end date
+    if (isAllDay) {
+      endDate.setDate(endDate.getDate() - 1)
+    }
+
+    const startOptions: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      day: 'numeric'
+    }
+    
+    const endOptions: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }
+    
+    // Add month to start date if months are different
+    if (startDate.getMonth() !== endDate.getMonth()) {
+      startOptions.month = 'short'
+    }
+    
+    const startStr = startDate.toLocaleDateString('th-TH', startOptions)
+    const endStr = endDate.toLocaleDateString('th-TH', endOptions)
+    
+    console.log('Formatted:', startStr, '-', endStr)
+    
+    return `${startStr} - ${endStr}`
+  }
+
+  const isMultiDayEvent = (startDateTime?: string, endDateTime?: string, startDate?: string, endDate?: string) => {
+    // Check date-only events
+    if (startDate && endDate && !startDateTime && !endDateTime) {
+      return new Date(startDate).toDateString() !== new Date(endDate).toDateString()
+    }
+    
+    // Check datetime events
+    if (startDateTime && endDateTime) {
+      const start = new Date(startDateTime)
+      const end = new Date(endDateTime)
+      return start.toDateString() !== end.toDateString()
+    }
+    
+    return false
+  }
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-lg text-gray-900">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 font-sans">
+        <main className="flex flex-col items-center gap-6 p-8 bg-white rounded-lg shadow-lg">
+          <h1 className="text-3xl font-semibold text-gray-900">
+            Google Calendar Mini
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-lg text-gray-600 text-center">
+            เชื่อมต่อกับ Google Calendar เพื่อดูกิจกรรมของคุณ
           </p>
+          <button
+            onClick={() => signIn('google')}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign in with Google
+          </button>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Google Calendar Mini
+          </h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              {session.user?.email}
+            </span>
+            <button
+              onClick={() => signOut()}
+              className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </header>
+
+      <main className="max-w-4xl mx-auto p-4">
+        <div className="mb-6 flex gap-3">
+          <button
+            onClick={fetchEvents}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {loading ? 'Loading...' : 'Refresh Events'}
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
           >
-            Documentation
-          </a>
+            สร้างกิจกรรมใหม่
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  กิจกรรม
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  วันที่
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  เวลาเริ่ม
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  เวลาสิ้นสุด
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  รายละเอียด
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  จัดการ
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {events.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    ไม่มีกิจกรรมในช่วง 7 วันข้างหน้า
+                  </td>
+                </tr>
+              )}
+
+              {events.map((event) => {
+                const multiDay = isMultiDayEvent(event.start?.dateTime, event.end?.dateTime, event.start?.date, event.end?.date)
+                
+                // Debug logging for all events
+                console.log('Event:', event.summary, {
+                  startDate: event.start?.date,
+                  startDateTime: event.start?.dateTime,
+                  endDate: event.end?.date,
+                  endDateTime: event.end?.dateTime,
+                  isMultiDay: multiDay
+                })
+                
+                return (
+                <tr key={event.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-gray-900">
+                      {event.summary || 'No Title'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600">
+                      {multiDay ? (
+                        <div>
+                          {formatDateRange(event.start?.dateTime || event.start?.date, event.end?.dateTime || event.end?.date)}
+                        </div>
+                      ) : (
+                        <div>{formatDate(event.start?.dateTime || event.start?.date)}</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600">
+                      {formatTime(event.start?.dateTime || event.start?.date)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600">
+                      {formatTime(event.end?.dateTime || event.end?.date)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600 max-w-xs truncate">
+                      {event.description || '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setEditingEvent(event)}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
+                        onClick={() => event.id && deleteEvent(event.id, event.summary || 'No Title')}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                      >
+                        ลบ
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </main>
+
+      {showForm && (
+        <EventForm
+          onSubmit={createEvent}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+
+      {editingEvent && (
+        <EventForm
+          initialData={{
+            summary: editingEvent.summary,
+            description: editingEvent.description,
+            start: editingEvent.start?.dateTime,
+            end: editingEvent.end?.dateTime
+          }}
+          onSubmit={(eventData) => {
+            if (editingEvent.id) {
+              updateEvent(editingEvent.id, eventData)
+            }
+          }}
+          onCancel={() => setEditingEvent(null)}
+        />
+      )}
     </div>
-  );
+  )
 }
