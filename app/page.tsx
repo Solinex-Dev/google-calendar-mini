@@ -11,10 +11,19 @@ interface CalendarEvent {
   start?: {
     dateTime?: string
     date?: string
+    timeZone?: string
   }
   end?: {
     dateTime?: string
     date?: string
+    timeZone?: string
+  }
+  reminders?: {
+    useDefault: boolean
+    overrides: Array<{
+      method: 'email'
+      minutes: number
+    }>
   }
 }
 
@@ -36,8 +45,11 @@ export default function Home() {
       const response = await fetch('/api/calendar')
       const data = await response.json()
       
+      console.log('Fetched events:', data.events)
+      console.log('Events count:', data.events?.length || 0)
+      
       if (response.ok) {
-        setEvents(data.events)
+        setEvents(data.events || [])
       } else {
         setError(data.error || 'Failed to fetch events')
       }
@@ -57,8 +69,15 @@ export default function Home() {
   const createEvent = async (eventData: {
     summary: string
     description?: string
-    start: { dateTime: string }
-    end: { dateTime: string }
+    start: { dateTime: string; timeZone?: string }
+    end: { dateTime: string; timeZone?: string }
+    reminders?: {
+      useDefault: boolean
+      overrides: Array<{
+        method: 'email'
+        minutes: number
+      }>
+    }
   }) => {
     try {
       setLoading(true)
@@ -266,17 +285,17 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             Google Calendar Mini
           </h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+            <span className="text-sm text-gray-600 truncate">
               {session.user?.email}
             </span>
             <button
               onClick={() => signOut()}
-              className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors w-full sm:w-auto"
             >
               Sign Out
             </button>
@@ -284,18 +303,18 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4">
-        <div className="mb-6 flex gap-3">
+      <main className="mx-auto p-4">
+        <div className="mb-6 flex flex-col sm:flex-row gap-3">
           <button
             onClick={fetchEvents}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors w-full sm:w-auto"
           >
             {loading ? 'Loading...' : 'Refresh Events'}
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors w-full sm:w-auto"
           >
             สร้างกิจกรรมใหม่
           </button>
@@ -308,29 +327,30 @@ export default function Home() {
         )}
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  กิจกรรม
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  วันที่
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  เวลาเริ่ม
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  เวลาสิ้นสุด
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  รายละเอียด
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  จัดการ
-                </th>
-              </tr>
-            </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    กิจกรรม
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    วันที่
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    เวลาเริ่ม
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    เวลาสิ้นสุด
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    รายละเอียด
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    จัดการ
+                  </th>
+                </tr>
+              </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {events.length === 0 && !loading && (
                 <tr>
@@ -341,71 +361,83 @@ export default function Home() {
               )}
 
               {events.map((event) => {
-                const multiDay = isMultiDayEvent(event.start?.dateTime, event.end?.dateTime, event.start?.date, event.end?.date)
-                
-                // Debug logging for all events
-                console.log('Event:', event.summary, {
-                  startDate: event.start?.date,
-                  startDateTime: event.start?.dateTime,
-                  endDate: event.end?.date,
-                  endDateTime: event.end?.dateTime,
-                  isMultiDay: multiDay
-                })
-                
-                return (
-                <tr key={event.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">
-                      {event.summary || 'No Title'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600">
-                      {multiDay ? (
-                        <div>
-                          {formatDateRange(event.start?.dateTime || event.start?.date, event.end?.dateTime || event.end?.date)}
-                        </div>
-                      ) : (
-                        <div>{formatDate(event.start?.dateTime || event.start?.date)}</div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600">
-                      {formatTime(event.start?.dateTime || event.start?.date)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600">
-                      {formatTime(event.end?.dateTime || event.end?.date)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600 max-w-xs truncate">
-                      {event.description || '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => setEditingEvent(event)}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
-                      >
-                        แก้ไข
-                      </button>
-                      <button
-                        onClick={() => event.id && deleteEvent(event.id, event.summary || 'No Title')}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                      >
-                        ลบ
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                )
+                try {
+                  const multiDay = isMultiDayEvent(event.start?.dateTime, event.end?.dateTime, event.start?.date, event.end?.date)
+                  
+                  // Debug logging for all events
+                  console.log('Event:', event.summary, {
+                    startDate: event.start?.date,
+                    startDateTime: event.start?.dateTime,
+                    endDate: event.end?.date,
+                    endDateTime: event.end?.dateTime,
+                    isMultiDay: multiDay
+                  })
+                  
+                  return (
+                  <tr key={event.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {event.summary || 'No Title'}
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm text-gray-600">
+                        {multiDay ? (
+                          <div>
+                            {formatDateRange(event.start?.dateTime || event.start?.date, event.end?.dateTime || event.end?.date)}
+                          </div>
+                        ) : (
+                          <div>{formatDate(event.start?.dateTime || event.start?.date)}</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm text-gray-600">
+                        {formatTime(event.start?.dateTime || event.start?.date)}
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm text-gray-600">
+                        {formatTime(event.end?.dateTime || event.end?.date)}
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm text-gray-600 max-w-xs truncate">
+                        {event.description || '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingEvent(event)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
+                        >
+                          แก้ไข
+                        </button>
+                        <button
+                          onClick={() => deleteEvent(event.id!)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                        >
+                          ลบ
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  )
+                } catch (error) {
+                  console.error('Error rendering event:', event, error)
+                  return (
+                    <tr key={event.id}>
+                      <td colSpan={6} className="px-4 py-4 text-center text-red-500">
+                        Error rendering event: {event.summary}
+                      </td>
+                    </tr>
+                  )
+                }
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </main>
 
@@ -419,10 +451,14 @@ export default function Home() {
       {editingEvent && (
         <EventForm
           initialData={{
-            summary: editingEvent.summary,
-            description: editingEvent.description,
-            start: editingEvent.start?.dateTime,
-            end: editingEvent.end?.dateTime
+            summary: editingEvent.summary || '',
+            description: editingEvent.description || '',
+            start: editingEvent.start?.dateTime || editingEvent.start?.date || '',
+            end: editingEvent.end?.dateTime || editingEvent.end?.date || '',
+            reminders: editingEvent.reminders ? {
+              useDefault: editingEvent.reminders.useDefault || false,
+              overrides: editingEvent.reminders.overrides || []
+            } : undefined
           }}
           onSubmit={(eventData) => {
             if (editingEvent.id) {
