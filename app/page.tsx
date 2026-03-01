@@ -346,6 +346,9 @@ export default function Home() {
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     รายละเอียด
                   </th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    แจ้งเตือนล่วงหน้า
+                  </th>
                   <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     จัดการ
                   </th>
@@ -354,7 +357,7 @@ export default function Home() {
             <tbody className="bg-white divide-y divide-gray-200">
               {events.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     ไม่มีกิจกรรมในช่วง 7 วันข้างหน้า
                   </td>
                 </tr>
@@ -406,6 +409,20 @@ export default function Home() {
                         {event.description || '-'}
                       </div>
                     </td>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm text-gray-600">
+                        {event.reminders?.overrides?.[0]?.minutes ? (
+                          event.reminders.overrides[0].minutes === 1 ? '1 นาที' :
+                          event.reminders.overrides[0].minutes === 10 ? '10 นาที' :
+                          event.reminders.overrides[0].minutes === 30 ? '30 นาที' :
+                          event.reminders.overrides[0].minutes === 60 ? '1 ชั่วโมง' :
+                          event.reminders.overrides[0].minutes === 1440 ? '1 วัน' :
+                          `${event.reminders.overrides[0].minutes} นาที`
+                        ) : (
+                          <span className="text-gray-400">ไม่มี</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
@@ -428,7 +445,7 @@ export default function Home() {
                   console.error('Error rendering event:', event, error)
                   return (
                     <tr key={event.id}>
-                      <td colSpan={6} className="px-4 py-4 text-center text-red-500">
+                      <td colSpan={7} className="px-4 py-4 text-center text-red-500">
                         Error rendering event: {event.summary}
                       </td>
                     </tr>
