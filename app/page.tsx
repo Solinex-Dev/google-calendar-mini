@@ -79,17 +79,21 @@ export default function Home() {
       }>
     }
   }) => {
+    if (!session) return
+    
     try {
       setLoading(true)
       const response = await fetch('/api/calendar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventData)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
       })
       
       if (response.ok) {
         setShowForm(false)
-        fetchEvents()
+        fetchEvents() // Fetch events again to show new event
       } else {
         const data = await response.json()
         setError(data.error || 'Failed to create event')
@@ -102,17 +106,21 @@ export default function Home() {
   }
 
   const updateEvent = async (eventId: string, eventData: Partial<CalendarEvent>) => {
+    if (!session) return
+    
     try {
       setLoading(true)
-      const response = await fetch('/api/calendar', {
+      const response = await fetch(`/api/calendar/${eventId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, ...eventData })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
       })
       
       if (response.ok) {
         setEditingEvent(null)
-        fetchEvents()
+        fetchEvents() // Fetch events again to show updated event
       } else {
         const data = await response.json()
         setError(data.error || 'Failed to update event')
@@ -124,30 +132,32 @@ export default function Home() {
     }
   }
 
-  const deleteEvent = async (eventId: string, eventTitle?: string) => {
-    const confirmMessage = eventTitle 
-      ? `คุณแน่ใจหรือไม่ที่จะลบกิจกรรม "${eventTitle}"?`
-      : 'คุณแน่ใจหรือไม่ที่จะลบกิจกรรมนี้?'
+  const deleteEvent = async (eventId: string) => {
+    console.log('Deleting event with ID:', eventId) // ← เพิ่ม log
     
-    if (!confirm(confirmMessage)) {
+    if (!eventId) {
+      console.error('No event ID provided') // ← เพิ่ม log
+      setError('Event ID is required')
       return
     }
-
+    
     try {
       setLoading(true)
-      const response = await fetch('/api/calendar', {
+      const response = await fetch(`/api/calendar/${eventId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId })
       })
+      
+      console.log('Delete response status:', response.status) // ← เพิ่ม log
       
       if (response.ok) {
         fetchEvents()
       } else {
         const data = await response.json()
+        console.log('Delete error:', data) // ← เพิ่ม log
         setError(data.error || 'Failed to delete event')
       }
     } catch (err) {
+      console.error('Delete error:', err) // ← เพิ่ม log
       setError('Network error')
     } finally {
       setLoading(false)
@@ -334,22 +344,22 @@ export default function Home() {
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     กิจกรรม
                   </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     วันที่
                   </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     เวลาเริ่ม
                   </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     เวลาสิ้นสุด
                   </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     รายละเอียด
                   </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     แจ้งเตือนล่วงหน้า
                   </th>
-                  <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     จัดการ
                   </th>
                 </tr>
@@ -378,12 +388,12 @@ export default function Home() {
                   
                   return (
                   <tr key={event.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {event.summary || 'No Title'}
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">
                         {multiDay ? (
                           <div>
@@ -394,12 +404,12 @@ export default function Home() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">
                         {formatTime(event.start?.dateTime || event.start?.date)}
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">
                         {formatTime(event.end?.dateTime || event.end?.date)}
                       </div>
@@ -409,30 +419,97 @@ export default function Home() {
                         {event.description || '-'}
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">
-                        {event.reminders?.overrides?.[0]?.minutes ? (
-                          event.reminders.overrides[0].minutes === 1 ? '1 นาที' :
-                          event.reminders.overrides[0].minutes === 10 ? '10 นาที' :
-                          event.reminders.overrides[0].minutes === 30 ? '30 นาที' :
-                          event.reminders.overrides[0].minutes === 60 ? '1 ชั่วโมง' :
-                          event.reminders.overrides[0].minutes === 1440 ? '1 วัน' :
-                          `${event.reminders.overrides[0].minutes} นาที`
+                        {event.reminders?.overrides?.length ? (
+                          <div>
+                            {(() => {
+                              // Sort reminders by unit: minutes -> hours -> days -> weeks
+                              const sortedReminders = [...event.reminders.overrides].sort((a, b) => {
+                                const unitOrder = { 'minutes': 1, 'hours': 2, 'days': 3, 'weeks': 4 }
+                                const getUnit = (minutes: number) => {
+                                  if (minutes >= 10080) return 'weeks'
+                                  if (minutes >= 1440) return 'days'
+                                  if (minutes >= 60) return 'hours'
+                                  return 'minutes'
+                                }
+                                const unitA = getUnit(a.minutes)
+                                const unitB = getUnit(b.minutes)
+                                return unitOrder[unitA] - unitOrder[unitB]
+                              })
+
+                              const reminderTexts = sortedReminders.map((reminder) => {
+                                const minutes = reminder.minutes
+                                if (minutes < 60) {
+                                  return `${minutes} นาที`
+                                } else if (minutes < 1440) {
+                                  const hours = Math.floor(minutes / 60)
+                                  const remainingMinutes = minutes % 60
+                                  return remainingMinutes > 0 ? `${hours} ชั่วโมง ${remainingMinutes} นาที` : `${hours} ชั่วโมง`
+                                } else if (minutes < 10080) {
+                                  const days = Math.floor(minutes / 1440)
+                                  const remainingHours = Math.floor((minutes % 1440) / 60)
+                                  const remainingMinutes = minutes % 60
+                                  if (remainingHours > 0 && remainingMinutes > 0) {
+                                    return `${days} วัน ${remainingHours} ชั่วโมง ${remainingMinutes} นาที`
+                                  } else if (remainingHours > 0) {
+                                    return `${days} วัน ${remainingHours} ชั่วโมง`
+                                  } else if (remainingMinutes > 0) {
+                                    return `${days} วัน ${remainingMinutes} นาที`
+                                  } else {
+                                    return `${days} วัน`
+                                  }
+                                } else {
+                                  const weeks = Math.floor(minutes / 10080)
+                                  const remainingDays = Math.floor((minutes % 10080) / 1440)
+                                  const remainingHours = Math.floor(((minutes % 10080) % 1440) / 60)
+                                  const remainingMinutes = minutes % 60
+                                  if (remainingDays > 0 && remainingHours > 0 && remainingMinutes > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingDays} วัน ${remainingHours} ชั่วโมง ${remainingMinutes} นาที`
+                                  } else if (remainingDays > 0 && remainingHours > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingDays} วัน ${remainingHours} ชั่วโมง`
+                                  } else if (remainingDays > 0 && remainingMinutes > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingDays} วัน ${remainingMinutes} นาที`
+                                  } else if (remainingHours > 0 && remainingMinutes > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingHours} ชั่วโมง ${remainingMinutes} นาที`
+                                  } else if (remainingDays > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingDays} วัน`
+                                  } else if (remainingHours > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingHours} ชั่วโมง`
+                                  } else if (remainingMinutes > 0) {
+                                    return `${weeks} สัปดาห์ ${remainingMinutes} นาที`
+                                  } else {
+                                    return `${weeks} สัปดาห์`
+                                  }
+                                }
+                              })
+
+                              return reminderTexts.join(' / ')
+                            })()}
+                          </div>
                         ) : (
                           <span className="text-gray-400">ไม่มี</span>
                         )}
                       </div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 items-center">
                         <button
-                          onClick={() => setEditingEvent(event)}
+                          onClick={() => {
+                            console.log('Editing event:', event.id, event)
+                            setEditingEvent(event)
+                          }}
                           className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
                         >
                           แก้ไข
                         </button>
                         <button
-                          onClick={() => deleteEvent(event.id!)}
+                          onClick={() => {
+                            if (confirm('ยืนยันที่จะลบกิจกรรม')) {
+                              console.log('Deleting event:', event.id, event)
+                              deleteEvent(event.id!)
+                            }
+                          }}
                           className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                         >
                           ลบ
@@ -467,22 +544,18 @@ export default function Home() {
 
       {editingEvent && (
         <EventForm
+          onSubmit={(eventData) => updateEvent(editingEvent.id!, eventData)}
+          onCancel={() => setEditingEvent(null)}
           initialData={{
             summary: editingEvent.summary || '',
             description: editingEvent.description || '',
-            start: editingEvent.start?.dateTime || editingEvent.start?.date || '',
-            end: editingEvent.end?.dateTime || editingEvent.end?.date || '',
+            start: editingEvent.start || { dateTime: '', date: '' },
+            end: editingEvent.end || { dateTime: '', date: '' },
             reminders: editingEvent.reminders ? {
               useDefault: editingEvent.reminders.useDefault || false,
               overrides: editingEvent.reminders.overrides || []
             } : undefined
           }}
-          onSubmit={(eventData) => {
-            if (editingEvent.id) {
-              updateEvent(editingEvent.id, eventData)
-            }
-          }}
-          onCancel={() => setEditingEvent(null)}
         />
       )}
     </div>

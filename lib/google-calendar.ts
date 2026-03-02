@@ -8,8 +8,8 @@ export async function getCalendarEvents(accessToken: string) {
     const calendar = google.calendar({ version: 'v3', auth })
     
     const now = new Date()
-    const timeMin = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString() // 24 hours ago
-    const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+    const timeMin = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days ago
+    const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days ahead
 
     const response = await calendar.events.list({
       calendarId: 'primary',
@@ -17,7 +17,7 @@ export async function getCalendarEvents(accessToken: string) {
       timeMax,
       singleEvents: true,
       orderBy: 'startTime',
-      maxResults: 50,
+      maxResults: 15,
     })
 
     return response.data.items || []
